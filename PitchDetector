@@ -1,4 +1,12 @@
 // This version accept signal from guitar over preAmp (AliExp: TL072) and outputs to MCP4725 DAC
+// ESP32S3 (44pin) <-> MCP4725
+// pin: 4              SDA
+// pin: 5              SCL
+// pin: 3.3v           VCC 
+// pin: GND            GND
+// pin: 1 - analog input -> to guitar preamp
+// 1117C pin: 4.65v to PreAmp
+
 #include "arduinoFFT.h"
 #include <Wire.h>
 #include <Adafruit_MCP4725.h>
@@ -24,13 +32,7 @@ int controlSignal  = 0;
 // Create FFT object with weighing factor storage
 ArduinoFFT<float> FFT = ArduinoFFT<float>(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY, true);
 Adafruit_MCP4725 dac;
-// ESP32S3 (44pin) <-> MCP4725
-// pin: 4              SDA
-// pin: 5              SCL
-// pin: 3.3v           VCC 
-// pin: GND            GND
-// pin: 1 - analog input -> to guitar preamp
-// 1117C pin: 4.65v to PreAmp
+
 void setup() {
   Serial.begin(115200);
   Wire.begin(I2C_SDA, I2C_SCL);
