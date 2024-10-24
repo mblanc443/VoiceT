@@ -1,54 +1,76 @@
-// Detect guitar chord pitch and amplitude
-#include <arduinoFFT.h>
+// This version accept signal from guitar over preAmp (AliExp: TL072) and outputs to MCP4725 DAC
+#include "arduinoFFT.h"
+#include <Wire.h>
+#include <Adafruit_MCP4725.h>
 
-#define CHANNEL              A0 // Analog Input
-#define SAMPLES             256 // Has to be a square of 2
-#define SAMPLING_FREQUENCY 5000 // Hz
-#define AMPLITUDE_THRESHOLD  50 // Minimum amplitude to consider a valid pitch
-#define BIT_RESOLUTION       12 // 
+#define PIN_AUDIO_IN               1  // Analog Input
+#define I2C_SDA                    4  // SDA - GPIO4
+#define I2C_SCL                    5  // SLC - GPIO5
+#define SAMPLES                  128  // Need to be a square of 2
+#define SAMPLING_FREQUENCY      2400  // Double of highest freq in range Hz
+#define AMPLITUDE_THRESHOLD      280  // 50 Minimum amplitude to consider a valid pitch
+#define BIT_RESOLUTION            12  // for 4096 levels of dac precision to start from
+#define EXT_MPC4725_1           0x60  // 0x62 will use default CS address for MPC4725
 
-unsigned int samplingPeriodUs;
-unsigned long microseconds;
 
-// These are the input and output vectors
-// Input vectors receive computed results from FFT
-double vReal[SAMPLES];
-double vImag[SAMPLES];
+unsigned int samplingPeriod;
+unsigned long currentTime;
 
-float pitchFrequency = 0; // int
-int controlSignal = 0;
+// These are the input and output vectors to receive computed results from FFT
+float vReal[SAMPLES];
+float vImag[SAMPLES];
+int controlSignal  = 0;
 
 // Create FFT object with weighing factor storage
-ArduinoFFT<double> FFT = ArduinoFFT<double>(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY);
-
+ArduinoFFT<float> FFT = ArduinoFFT<float>(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY, true);
+Adafruit_MCP4725 dac;
+// ESP32S3 (44pin) <-> MCP4725
+// pin: 4              SDA
+// pin: 5              SCL
+// pin: 3.3v           VCC 
+// pin: GND            GND
+// pin: 1 - analog input -> to guitar preamp
+// 1117C pin: 4.65v to PreAmp
 void setup() {
   Serial.begin(115200);
-  samplingPeriodUs = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
+  Wire.begin(I2C_SDA, I2C_SCL);
+  //
+  if (!dac.begin(EXT_MPC4725_1)) {
+    Serial.println("Failed to locate dac: MPC4725");
+    while(1);
+  }
+ 
+  samplingPeriod = round(1000000*(1.0/SAMPLING_FREQUENCY));
   analogReadResolution(BIT_RESOLUTION); // 12-bit resolution
 }
 
 void loop() {
-  // SAMPLING
-  microseconds = micros();
-  
+  currentTime = micros(); 
   for (int i = 0; i < SAMPLES; i++) {
-    if (i == 0) {
-      vReal[i] = analogRead(CHANNEL); // Read from ADC pin A0 //34 (change as needed)
-    } else {
-      delayMicroseconds(samplingPeriodUs - (micros() - microseconds));
-      vReal[i] = analogRead(CHANNEL);
-    }
-    vImag[i] = 0; // Imaginary part must be zeroed
+    vReal[i] = analogRead(PIN_AUDIO_IN);                   // A conversion takes about 1uS on an ESP32
+    vImag[i] = 0;
+    while (micros() - currentTime < samplingPeriod) {}      // wait time
+    currentTime += samplingPeriod;
+  }
+  FFT.dcRemoval();
+  FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);	// Weigh data
+  FFT.compute(FFTDirection::Forward);                       // Compute FFT
+  FFT.complexToMagnitude();                                 // Compute magnitudes
+  float pitchFrequency = FFT.majorPeak(); 
+ 
+  // Find max aplitude for current samples
+  double maxAmplitute = 0;
+  for (int i=0; i < SAMPLES/2; i++) {
+     if (vReal[i] > maxAmplitute) { maxAmplitute = vReal[i]; } // track the higheest value
   }
 
-  FFT.windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD); //FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);	/* Weigh data */
-  FFT.compute(vReal, vImag, SAMPLES, FFT_FORWARD); // FFT.compute(FFTDirection::Forward); /* Compute FFT */
-  FFT.complexToMagnitude(vReal, vImag, SAMPLES);   // FFT.complexToMagnitude(); /* Compute magnitudes */
-  
-  pitchFrequency = FFT.majorPeak(); //.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY); // float x = FFT.majorPeak();
-  
-  if (pitchFrequency > AMPLITUDE_THRESHOLD) {
-    controlSignal = map(pitchFrequency, 80, 1000, 0, 255); // Adjust ranges as needed
-    Serial.println("Pitch Frequency: " + String(pitchFrequency) + " Control Signal [Hz]: " + String(controlSignal));
+  // Filter only values over threshold
+  if (maxAmplitute > AMPLITUDE_THRESHOLD) {
+    controlSignal = map(pitchFrequency, 20, SAMPLING_FREQUENCY/2, 0, 4096); // Adjust ranges as needed
+    Serial.println("Pitch Frequency: " + String(pitchFrequency) + " mapped: " + String(controlSignal));
+    // output to FV-1 POT0
+    dac.setVoltage(controlSignal, false);
+    // for stability
+    delay(10);
   }
 }
