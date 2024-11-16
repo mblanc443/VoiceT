@@ -29,6 +29,75 @@ float vReal[SAMPLES];
 float vImag[SAMPLES];
 int controlSignal  = 0;
 
+
+const float freqRanges[][3] = {
+  {1, 82, 84}, 
+  {2, 82, 84}, 
+  {3, 82, 84}, 
+  {4, 40, 400},
+  {5, 50, 500}, 
+  {6, 60, 600}, 
+  {7, 70, 700}, 
+  {8, 80, 800},
+  {9, 90, 900}, 
+  {10, 100, 1000}, 
+  {11, 110, 1100}, 
+  {12, 120, 1200},
+  {13, 130, 1300}, 
+  {14, 140, 1400}, 
+  {15, 150, 1500}, 
+  {16, 160, 1600},
+  {17, 170, 1700}, 
+  {18, 180, 1800}, 
+  {19, 190, 1900}, 
+  {20, 200, 2000},
+  {21, 210, 2100}, 
+  {22, 220, 2200}, 
+  {23, 230, 2300}, 
+  {24, 240, 2400},
+  {25, 250, 2500}, 
+  {26, 260, 2600}, 
+  {27, 270, 2700}, 
+  {28, 280, 2800},
+  {29, 290, 2900}, 
+  {30, 300, 3000}, 
+  {31, 310, 3100}, 
+  {32, 320, 3200},
+  {33, 330, 3300}, 
+  {34, 340, 3400}, 
+  {35, 350, 3500}, 
+  {36, 360, 3600},
+  {37, 370, 3700}, 
+  {38, 380, 3800}, 
+  {39, 390, 3900}, 
+  {40, 400, 4000},
+  {41, 410, 4100}, 
+  {42, 420, 4200}, 
+  {43, 430, 4300}, 
+  {44, 440, 4400},
+  {45, 450, 4500}, 
+  {46, 460, 4600}, 
+  {47, 470, 4700}, 
+  {48, 480, 4800},
+  {49, 490, 4900}, 
+  {50, 500, 5000}, 
+  {51, 510, 5100}, 
+  {52, 520, 5200},
+  {53, 530, 5300}, 
+  {54, 540, 5400}, 
+  {55, 550, 5500}, 
+  {56, 560, 5600},
+  {57, 570, 5700}, 
+  {58, 580, 5800}, 
+  {59, 590, 5900}, 
+  {60, 600, 6000},
+  {61, 610, 6100}, 
+  {62, 620, 6200}, 
+  {63, 630, 6300}, 
+  {64, 640, 6400}
+};
+
+
 // Create FFT object with weighing factor storage
 ArduinoFFT<float> FFT = ArduinoFFT<float>(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY, true);
 Adafruit_MCP4725 dac;
@@ -60,6 +129,7 @@ void loop() {
   FFT.complexToMagnitude();                                 // Compute magnitudes
   float pitchFrequency = FFT.majorPeak(); 
  
+
   // Find max aplitude for current samples
   double maxAmplitute = 0;
   for (int i=0; i < SAMPLES/2; i++) {
@@ -72,7 +142,20 @@ void loop() {
     Serial.println("Pitch Frequency: " + String(pitchFrequency) + " mapped: " + String(controlSignal));
     // output to FV-1 POT0
     dac.setVoltage(controlSignal, false);
+    //
+    int value = FilterFreqValue(pitchFrequency);
+    Serial.println("Frequency Index: " + String(value)); 
+
     // for stability
     delay(10);
   }
+}
+
+// 
+int FilterFreqValue(float frequency) {
+    for (int counter = 0; counter < 64; counter++) {
+        if ( frequency >= freqRanges[counter][1] && frequency < freqRanges[counter][2] ) {
+          return  freqRanges[counter][0];
+        }
+    }
 }
