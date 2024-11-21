@@ -1,5 +1,5 @@
 // This version accept signal from guitar over preAmp (AliExp: TL072) and outputs to MCP4725 DAC
-// ESP32S3 (44pin) <-> MCP4725
+// ESP32S3 (44pin) <-> MCP4725 = esp32s3 Dev Module
 // pin: 4              SDA
 // pin: 5              SCL
 // pin: 3.3v           VCC 
@@ -11,12 +11,14 @@
 #include <Wire.h>
 #include <Adafruit_MCP4725.h>
 
-#define PIN_AUDIO_IN               1  // Analog Input
+#define PIN_AUDIO_IN               1  // Analog Input-1-
 #define I2C_SDA                    4  // SDA - GPIO4
 #define I2C_SCL                    5  // SLC - GPIO5
-#define SAMPLES                  128  // Need to be a square of 2
-#define SAMPLING_FREQUENCY      2400  // Double of highest freq in range Hz
-#define AMPLITUDE_THRESHOLD      280  // 50 Minimum amplitude to consider a valid pitch
+
+#define SAMPLES                  256  // Need to be a square of 2-128
+#define SAMPLING_FREQUENCY      3000 // Double of highest freq in range Hz -2400-
+#define AMPLITUDE_THRESHOLD      200  // 50 Minimum amplitude to consider a valid pitch 250
+
 #define BIT_RESOLUTION            12  // for 4096 levels of dac precision to start from
 #define EXT_MPC4725_1           0x60  // 0x62 will use default CS address for MPC4725
 
@@ -29,74 +31,53 @@ float vReal[SAMPLES];
 float vImag[SAMPLES];
 int controlSignal  = 0;
 
-
 const float freqRanges[][3] = {
-  {1, 82, 84}, 
-  {2, 82, 84}, 
-  {3, 82, 84}, 
-  {4, 40, 400},
-  {5, 50, 500}, 
-  {6, 60, 600}, 
-  {7, 70, 700}, 
-  {8, 80, 800},
-  {9, 90, 900}, 
-  {10, 100, 1000}, 
-  {11, 110, 1100}, 
-  {12, 120, 1200},
-  {13, 130, 1300}, 
-  {14, 140, 1400}, 
-  {15, 150, 1500}, 
-  {16, 160, 1600},
-  {17, 170, 1700}, 
-  {18, 180, 1800}, 
-  {19, 190, 1900}, 
-  {20, 200, 2000},
-  {21, 210, 2100}, 
-  {22, 220, 2200}, 
-  {23, 230, 2300}, 
-  {24, 240, 2400},
-  {25, 250, 2500}, 
-  {26, 260, 2600}, 
-  {27, 270, 2700}, 
-  {28, 280, 2800},
-  {29, 290, 2900}, 
-  {30, 300, 3000}, 
-  {31, 310, 3100}, 
-  {32, 320, 3200},
-  {33, 330, 3300}, 
-  {34, 340, 3400}, 
-  {35, 350, 3500}, 
-  {36, 360, 3600},
-  {37, 370, 3700}, 
-  {38, 380, 3800}, 
-  {39, 390, 3900}, 
-  {40, 400, 4000},
-  {41, 410, 4100}, 
-  {42, 420, 4200}, 
-  {43, 430, 4300}, 
-  {44, 440, 4400},
-  {45, 450, 4500}, 
-  {46, 460, 4600}, 
-  {47, 470, 4700}, 
-  {48, 480, 4800},
-  {49, 490, 4900}, 
-  {50, 500, 5000}, 
-  {51, 510, 5100}, 
-  {52, 520, 5200},
-  {53, 530, 5300}, 
-  {54, 540, 5400}, 
-  {55, 550, 5500}, 
-  {56, 560, 5600},
-  {57, 570, 5700}, 
-  {58, 580, 5800}, 
-  {59, 590, 5900}, 
-  {60, 600, 6000},
-  {61, 610, 6100}, 
-  {62, 620, 6200}, 
-  {63, 630, 6300}, 
-  {64, 640, 6400}
+  {1, 80, 84},   // E - 82.4
+  {2, 85, 89},   // F - 87,3
+  {3, 90, 94},   // F#- 92.5
+  {4, 95, 100},  // G - 98
+  {5, 101, 106}, // G#- 103.8
+  {6, 107, 112}, // A - 110 
+  {7, 113, 119}, // A#- 116.5
+  {8, 120, 126}, // H - 123.4
+  {9, 127, 133}, // C - 130.5
+  {10,136, 143}, // c#- 139.6
+  {11,144, 150}, // D - 147.8
+  {12, 152,159}, // D#- 155,5
+  {13, 160,168}, // E - 164,8
+  {14, 170,178}, // F - 174,2
+  {15, 181,189}, // F#- 185
+  {16, 191,201}, // G - 196
+  {17, 202,212}, // G#- 207
+  {18, 215,225}, // A  -220
+  {19, 227,238}, // A# -233
+  {20, 240,252}, // H  -246
+  {21, 255,267}, // C  -261
+  {22, 271,283}, // C# -277
+  {23, 286,300}, // D  -293.3
+  {24, 303,218}, // D# -311
+  {25, 321,337}, // E  -329.6
+  {26, 340,357}, // F  -349,2
+  {27, 361,379}, // F# -370
+  {28, 382,401}, // G  -392
+  {29, 405,425}, // G# -415.3
+  {30, 429,451}, // A  -440
+  {31, 455,477}, // A# -466.2
+  {32, 482,505}, // H  -493.9
+  {33, 510,536}, // C  -523.2
+  {34, 541,568}, // C# -554,4
+  {35, 573,601}, // D  -587,3
+  {36, 606,637}, // D# -622,3
+  {37, 643.675}, // E  -659.3
+  {38, 681,715}, // F  -698,5
+  {39, 722,758}, // F# -740
+  {40, 765,803}, // G  -784
+  {41, 811,850}, // G# -830.6
+  {42, 858,902}, // A  -880
+  {43, 910,955}, // A# -932.3
+  {44, 964,1010},// H  -987
+  {45, 1020,1072} // C -1046  
 };
-
 
 // Create FFT object with weighing factor storage
 ArduinoFFT<float> FFT = ArduinoFFT<float>(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY, true);
@@ -110,7 +91,9 @@ void setup() {
     Serial.println("Failed to locate dac: MPC4725");
     while(1);
   }
- 
+
+  // activate attenuator to 0-3v, default 0-1.1v
+  analogSetAttenuation(ADC_11db);
   samplingPeriod = round(1000000*(1.0/SAMPLING_FREQUENCY));
   analogReadResolution(BIT_RESOLUTION); // 12-bit resolution
 }
@@ -128,7 +111,7 @@ void loop() {
   FFT.compute(FFTDirection::Forward);                       // Compute FFT
   FFT.complexToMagnitude();                                 // Compute magnitudes
   float pitchFrequency = FFT.majorPeak(); 
- 
+  //Serial.println("FFT PitchF Frequency:"+String(pitchFrequency)); 
 
   // Find max aplitude for current samples
   double maxAmplitute = 0;
@@ -139,23 +122,24 @@ void loop() {
   // Filter only values over threshold
   if (maxAmplitute > AMPLITUDE_THRESHOLD) {
     controlSignal = map(pitchFrequency, 20, SAMPLING_FREQUENCY/2, 0, 4096); // Adjust ranges as needed
-    Serial.println("Pitch Frequency: " + String(pitchFrequency) + " mapped: " + String(controlSignal));
+    //Serial.println("Pitch Frequency: " + String(pitchFrequency) + " mapped: " + String(controlSignal));
     // output to FV-1 POT0
     dac.setVoltage(controlSignal, false);
     //
     int value = FilterFreqValue(pitchFrequency);
-    Serial.println("Frequency Index: " + String(value)); 
-
+    Serial.println(String(value)  + " " + String(pitchFrequency) ); 
+    // Serial.println(String(value));
     // for stability
-    delay(10);
+    delay(2);
   }
 }
 
 // 
 int FilterFreqValue(float frequency) {
-    for (int counter = 0; counter < 64; counter++) {
+    for (int counter = 0; counter < 44; counter++) {
         if ( frequency >= freqRanges[counter][1] && frequency < freqRanges[counter][2] ) {
           return  freqRanges[counter][0];
         }
     }
+    return 0;
 }
