@@ -124,8 +124,10 @@ void loop() {
     dac.setVoltage(controlSignal, false);
     //
     int value = FilterFreqValue(pitchFrequency);
-    Serial.println(String(value)  + " " + String(pitchFrequency) ); 
+    Serial.println(String(value)  + " " + String(pitchFrequency)); 
     // Serial.println(String(value));
+    // Serial.print(ToBinary(value)); 
+
     // for stability
     delay(2);
   }
@@ -139,4 +141,16 @@ int FilterFreqValue(float frequency) {
         }
     }
     return 0;
+}
+
+// convert into binary format
+String ToBinary(int value) {
+  String output;
+  // Print the value as an 8-bit binary number with leading zeros
+  for (int i = 7; i >= 0; i--) {
+    // Extract and print each bit
+    output = output + String((value >> i) & 1); 
+  }
+  output=output + " ";
+  return output;
 }
