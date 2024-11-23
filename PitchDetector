@@ -18,7 +18,6 @@
 #define SAMPLES                  256  // Need to be a square of 2
 #define SAMPLING_FREQUENCY      3000  // Double of highest freq in range Hz -2400-
 #define AMPLITUDE_THRESHOLD      200  // 50 Minimum amplitude to consider a valid pitch 250
-#define MIN_AMPLITUDE_THRESHOLD   50  // Set Min digital output to control a compression on preAmp level
 #define BIT_RESOLUTION            12  // for 4096 levels of dac precision to start from
 #define EXT_MPC4725_1           0x60  // 0x62 will use default CS address for MPC4725
 
