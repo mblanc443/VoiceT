@@ -12,11 +12,13 @@
 #include <Adafruit_MCP4725.h>
 
 #define PIN_AUDIO_IN               1  // Analog Input-1-
+#define PIN_COMPRESSION            2  // Output if below level
 #define I2C_SDA                    4  // SDA - GPIO4
 #define I2C_SCL                    5  // SLC - GPIO5
-#define SAMPLES                  256  // Need to be a square of 2-128
-#define SAMPLING_FREQUENCY      3000 // Double of highest freq in range Hz -2400-
+#define SAMPLES                  256  // Need to be a square of 2
+#define SAMPLING_FREQUENCY      3000  // Double of highest freq in range Hz -2400-
 #define AMPLITUDE_THRESHOLD      200  // 50 Minimum amplitude to consider a valid pitch 250
+#define MIN_AMPLITUDE_THRESHOLD   50  // Set Min digital output to control a compression on preAmp level
 #define BIT_RESOLUTION            12  // for 4096 levels of dac precision to start from
 #define EXT_MPC4725_1           0x60  // 0x62 will use default CS address for MPC4725
 
@@ -93,6 +95,9 @@ void setup() {
   analogSetAttenuation(ADC_11db);
   samplingPeriod = round(1000000*(1.0/SAMPLING_FREQUENCY));
   analogReadResolution(BIT_RESOLUTION); // 12-bit resolution
+
+  pinMode(PIN_COMPRESSION, OUTPUT);
+  digitalWrite (PIN_COMPRESSION, LOW);
 }
 
 void loop() {
@@ -108,7 +113,7 @@ void loop() {
   FFT.compute(FFTDirection::Forward);                       // Compute FFT
   FFT.complexToMagnitude();                                 // Compute magnitudes
   float pitchFrequency = FFT.majorPeak(); 
-  //Serial.println("FFT PitchF Frequency:"+String(pitchFrequency)); 
+  //Serial.println("FFT PitchF Frequency:" + String(pitchFrequency)); 
 
   // Find max aplitude for current samples
   double maxAmplitute = 0;
@@ -126,8 +131,9 @@ void loop() {
     int value = FilterFreqValue(pitchFrequency);
     Serial.println(String(value)  + " " + String(pitchFrequency)); 
     // Serial.println(String(value));
-    Serial.write(value); 
-
+    Serial.write(value);
+    //
+    digitalWrite (PIN_COMPRESSION, HIGH);
     // for stability
     delay(2);
   }
