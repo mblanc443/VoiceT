@@ -135,6 +135,8 @@ void loop() {
     digitalWrite (PIN_COMPRESSION, HIGH);
     // for stability
     delay(2);
+  } else {
+    digitalWrite (PIN_COMPRESSION, LOW;
   }
 }
 
