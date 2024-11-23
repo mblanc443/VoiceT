@@ -104,7 +104,7 @@ void loop() {
   for (int i = 0; i < SAMPLES; i++) {
     vReal[i] = analogRead(PIN_AUDIO_IN);                   // A conversion takes about 1uS on an ESP32
     vImag[i] = 0;
-    while (micros() - currentTime < samplingPeriod) {}      // wait time
+    while (micros() - currentTime < samplingPeriod) {}     // wait time
     currentTime += samplingPeriod;
   }
   FFT.dcRemoval();
@@ -122,20 +122,21 @@ void loop() {
 
   // Filter only values over threshold
   if (maxAmplitute > AMPLITUDE_THRESHOLD) {
-    controlSignal = map(pitchFrequency, 20, SAMPLING_FREQUENCY/2, 0, 4096); // Adjust ranges as needed
+    controlSignal = map(pitchFrequency, 20, SAMPLING_FREQUENCY/2, 0, 4096);    // Adjust ranges as needed
     //Serial.println("Pitch Frequency: " + String(pitchFrequency) + " mapped: " + String(controlSignal));
     // output to FV-1 POT0
     dac.setVoltage(controlSignal, false);
     //
     int value = FilterFreqValue(pitchFrequency);
-    Serial.println(String(value)  + " " + String(pitchFrequency)); 
-    // Serial.println(String(value));
+    //Serial.println(String(value)  + " " + String(pitchFrequency)); 
+    //Serial.println(String(value));
     Serial.write(value);
-    //
+    // set ext signal/LED to ON
     digitalWrite (PIN_COMPRESSION, HIGH);
     // for stability
     delay(2);
   } else {
+    // set ext signal/LED to OFF
     digitalWrite (PIN_COMPRESSION, LOW);
   }
 }
